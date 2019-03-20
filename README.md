@@ -1,6 +1,6 @@
 # Kotlin Spring Boot Elm Starter
 
-This project is a template to show how to be able to use Spring Boot in Kotlin for your server, and have a working setup for an Elm front-end.
+This project is a template using Spring Boot with Kotlin for your server, and Elm for the front-end.
 This setup allows you to test locally, as well as compile and deploy on a server using [circle-ci](https://circleci.com).
 
 This repo solves a few problems : 
