@@ -1,0 +1,64 @@
+version: 2
+jobs:
+  build-fe:
+    working_directory: ~/starter-kotlin
+    docker:
+      - image: circleci/node:8.9
+    steps:
+      - checkout
+      - run: npm install create-elm-app
+      - run: cd src/main/ui; ../../../node_modules/.bin/elm-app build; cd -
+      - save_cache:
+          paths:
+            - src/main/ui/build
+          key: deployment-data-fe-{{ .Branch }}-{{ .Revision }}
+
+  build-be:
+    working_directory: ~/starter-kotlin
+    docker:
+      - image: circleci/openjdk:8-jdk-browsers
+    steps:
+      - checkout
+      - run: ./gradlew test
+      - store_test_results:
+          path: build/test-results/
+      - store_artifacts:
+          path: build/libs/
+
+  deploy:
+    working_directory: ~/starter-kotlin
+    docker:
+      - image: circleci/openjdk:8-jdk-browsers
+    steps:
+      - checkout
+      - add_ssh_keys
+      - run: sudo apt install -y rsync
+      - restore_cache:
+          keys:
+            - deployment-data-fe-{{ .Branch }}-{{ .Revision }}
+      - run: mkdir -p src/main/resources/static
+      - run: rsync -r  src/main/ui/build/ src/main/resources/static
+      - run: rm -rf build/libs/*.jar
+      - run: ./gradlew build
+      - run: ssh-keyscan $IP_ADDRESS_OF_SERVER >> ~/.ssh/known_hosts
+      - run: cp -rf build/libs/starter-kotlin-*.jar build/libs/starter-kotlin-release.jar
+      - run: scp build/libs/starter-kotlin-release.jar $DROPLET_USERNAME@$DROPLET_IP:/home/jlengrand/starter
+      - run: ssh $DROPLET_USERNAME@$DROPLET_IP "sudo systemctl restart starter.service"
+      - run: ssh $DROPLET_USERNAME@$DROPLET_IP "sudo /bin/journalctl -u starter.service -b --no-pager"
+workflows:
+  version: 2
+  build_all:
+    jobs:
+      - build-be
+      - build-fe
+  build_all_and_deploy:
+    jobs:
+      - build-fe
+      - deploy:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - build-fe
+
